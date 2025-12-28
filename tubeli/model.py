@@ -35,6 +35,8 @@ LINE_IDS = (
     ELIZABETH_LINE_IDS + DLR_LINE_IDS + TUBE_LINE_IDS + OVERGROUND_LINE_IDS
 )
 
+CFOT = "check-front-of-train"
+
 ALL_STATION_DATA: list = []
 displayed_station_data: list = []
 search_buffer: str = ""
@@ -77,8 +79,9 @@ def fetch_stop_points(mode, stop_type):
         lines = simplify_lines(sp.get('lines', []))
         station = {
             'commonName': station_name_filter(sp['commonName']),
-            f'{mode}Id': sp['id'],
             'lines': lines,
+            'id': sp['id'],
+            'mode': mode,
         }
         if 'hubNaptanCode' in sp:
             station['hubId'] = sp['hubNaptanCode']
@@ -116,19 +119,20 @@ def merge_stations(station_lists, hub_common_names):
     """Merge station lists on hubId or ID."""
     station_map = {}
 
-    for mode_label, stations in station_lists:
-        id_field = f'{mode_label}Id'
+    for stations in station_lists:
         for station in stations:
-            key = station.get('hubId') or station[id_field]
+            s_id = station.get("hubId") or station["id"]
 
-            if key not in station_map:
-                station_map[key] = station
+            if s_id not in station_map:
+                station_map[s_id] = station
+                station_map[s_id]["modes"] = {station["mode"]: station["id"]}
+                del station_map[s_id]["mode"]
             else:
-                existing = station_map[key]
-                existing['lines'] = merge_lines(
-                    existing['lines'], station['lines']
+                existing = station_map[s_id]
+                existing["lines"] = merge_lines(
+                    existing["lines"], station["lines"]
                 )
-                existing[id_field] = station[id_field]
+                existing["modes"][station["mode"]] = station["id"]
 
     for station in station_map.values():
         if 'hubId' in station and station['hubId'] in hub_common_names:
@@ -137,41 +141,76 @@ def merge_stations(station_lists, hub_common_names):
     return list(station_map.values())
 
 
-def fetch_arrivals(station_id, line_id):
+def parse_direction(arrival):
+    DIRECTIONS = ["north", "south", "east", "west"]
+    if "platformName" in arrival and arrival["platformName"]:
+        for d in DIRECTIONS:
+            if d in arrival["platformName"].lower():
+                return f"{d}bound"
+
+    return (
+        arrival["direction"]
+        if "direction" in arrival and arrival["direction"]
+        else "terminal"
+    )
+
+
+def construct_arrival(arrival):
+    return {
+        "expected_time": arrival["expectedArrival"],
+        "platform_name": arrival["platformName"],
+        "direction": parse_direction(arrival),
+    }
+
+
+def fetch_lines_arrivals(station_id):
     response = requests.get(f"{API_URL}/StopPoint/{station_id}/Arrivals")
     response.raise_for_status()
-
-    # TODO: For terminal stations, maybe just show timetable data?
-    # /Line/{id}/Timetable/{fromStopPointId}
     arrivals = sorted(response.json(), key=lambda x: x["expectedArrival"])
 
-    terminals = {}
+    lines = {}
 
     for arrival in arrivals:
-        destination_id = arrival["destinationNaptanId"]
-        destination_name = arrival["destinationName"]
-        filtered_arrival = {
-            "expected_time": arrival["expectedArrival"],
-            "platform_name": arrival.get("platformName"),
-            "direction": arrival["direction"],
-        }
+        line_id = arrival["lineId"]
 
-        if destination_id not in terminals:
-            terminals[destination_id] = {
+        if line_id not in lines:
+            lines[line_id] = {
+                "line_name": arrival["lineName"],
+                "terminals": {},
+            }
+
+        destination_id = (
+            arrival["destinationNaptanId"]
+            if "destinationNaptanId" in arrival
+            else CFOT
+        )
+        destination_name = (
+            arrival["destinationName"] if "destinationName" in arrival else CFOT
+        )
+
+        if destination_id not in lines[line_id]["terminals"]:
+            lines[line_id]["terminals"][destination_id] = {
                 "station_name": destination_name,
                 "arrivals": [],
             }
             if destination_id == station_id:
+                # TODO: For terminal stations, maybe just show timetable data?
+                # /Line/{id}/Timetable/{fromStopPointId}
                 print(
                     "TODO: This station is a terminal - find a way to find the times!"
                 )
 
-        if len(terminals[destination_id]["arrivals"]) < ARRIVALS_PER_TERMINAL:
-            terminals[destination_id]["arrivals"].append(filtered_arrival)
+        if (
+            len(lines[line_id]["terminals"][destination_id]["arrivals"])
+            < ARRIVALS_PER_TERMINAL
+        ):
+            lines[line_id]["terminals"][destination_id]["arrivals"].append(
+                construct_arrival(arrival)
+            )
         else:
             continue
 
-    return terminals
+    return lines
 
 
 def handle_key_press(key: str) -> list:

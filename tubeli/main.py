@@ -2,7 +2,7 @@ from model import (
     fetch_stop_points,
     fetch_transport_interchanges,
     merge_stations,
-    fetch_arrivals,
+    fetch_lines_arrivals,
     TUBE_LINE_IDS,
     OVERGROUND_LINE_IDS,
 )
@@ -21,15 +21,16 @@ def main():
 
     merged_stations = merge_stations(
         [
-            ('elizabeth-line', elizabeth),
-            ('overground', overground),
-            ('tube', tube),
-            ('dlr', dlr),
+            elizabeth,
+            overground,
+            tube,
+            dlr,
         ],
         hub_common_names,
     )
 
-    print(json_dumps(merged_stations))
+    # print(json_dumps(merged_stations))
+    # return 0
 
     # Longest station names are
     # "King's Cross & St Pancras International"
@@ -40,43 +41,13 @@ def main():
 
     app = StationSelectorApp(merged_stations)
     result = app.run()
+    merged = {}
 
     if result:
-        if "elizabeth-lineId" in result:
-            print("elizabeth")
-            print(
-                json_dumps(
-                    fetch_arrivals(result["elizabeth-lineId"], "elizabeth"),
-                    indent=2,
-                )
-            )
-        if "dlrId" in result:
-            print("dlr")
-            print(json_dumps(fetch_arrivals(result["dlrId"], "dlr"), indent=2))
-        if "overgroundId" in result:
-            for line in result["lines"]:
-                if line["line_id"] in OVERGROUND_LINE_IDS:
-                    print(f"{line["line_name"]}")
-                    print(
-                        json_dumps(
-                            fetch_arrivals(
-                                result["overgroundId"], line["line_id"]
-                            ),
-                            indent=2,
-                        )
-                    )
-        if "tubeId" in result:
-            for line in result["lines"]:
-                if line["line_id"] in TUBE_LINE_IDS:
-                    print(f"{line["line_name"]}")
-                    print(
-                        json_dumps(
-                            fetch_arrivals(result["tubeId"], line["line_id"]),
-                            indent=2,
-                        )
-                    )
+        for mode in result["modes"]:
+            merged |= fetch_lines_arrivals(result["modes"][mode])
 
-    print(json_dumps(result, indent=2))
+    print(json_dumps(merged, indent=2))
     return
 
 
