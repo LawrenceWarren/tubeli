@@ -3,8 +3,6 @@ from model import (
     fetch_transport_interchanges,
     merge_stations,
     fetch_lines_arrivals,
-    TUBE_LINE_IDS,
-    OVERGROUND_LINE_IDS,
 )
 from view import StationSelectorApp
 from json import dumps as json_dumps
