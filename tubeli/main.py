@@ -27,6 +27,8 @@ def main():
         hub_common_names,
     )
 
+    merged_stations.sort(key=lambda station: station["commonName"])
+
     station_name_column_width = (
         max(len(station["commonName"]) for station in merged_stations) + 3
     )
