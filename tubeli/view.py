@@ -18,23 +18,34 @@ class LineListItem(ListItem):
         self.line_info = line_info  # Map
 
     def compose(self):
-        # TODO: Improve this majorly
-        yield Label(self.line_info.values(0), id="line-list-item")
+        label = Label(self.line_info["name"], id="line-list-item")
+        label.styles.background = self.line_info["color"]
+        label.styles.color = self.line_info["text_color"]
+        yield label
 
 
 class StationListItem(ListItem):
     """Custom ListItem for displaying station names."""
 
-    def __init__(self, station_info):
+    def __init__(self, station_info, station_name_column_width):
         super().__init__()
         self.station_info = station_info
+        self.station_name_column_width = station_name_column_width
 
     def compose(self):
+        name = self.station_info["commonName"]
         lines = [
             Label(line['line_name']) for line in self.station_info['lines']
         ]
+        station_name = Label(name)
+        station_name.styles.padding = (
+            0,
+            self.station_name_column_width - len(name),
+            0,
+            0,
+        )
         yield Container(
-            Label(self.station_info["commonName"]),
+            station_name,
             *lines,
             id="station-list-item",
         )
@@ -46,12 +57,14 @@ class StationSelectorApp(App):
     CSS_PATH = "layout.css"
     station_data = reactive([])
     line_ids_names = reactive({})
+    station_name_column_width = 0
 
-    def __init__(self, station_data, line_ids_names):
+    def __init__(self, station_data, line_ids_names, station_name_column_width):
         super().__init__()
 
         self._search_label = None
         self.line_ids_names = line_ids_names
+        self.station_name_column_width = station_name_column_width
         set_all_station_data(station_data)
         set_filtered_station_data(station_data)
         self.station_data = station_data
@@ -65,8 +78,11 @@ class StationSelectorApp(App):
         self._search_label = Label("Search: ", id="search_label")
         yield self._search_label
         yield ListView(
-            # *[ListItem(Label(line)) for line in self.line_ids_names.values()],
-            *[StationListItem(data) for data in self.station_data],
+            # *[LineListItem(line) for line in self.line_ids_names],
+            *[
+                StationListItem(data, self.station_name_column_width)
+                for data in self.station_data
+            ],
             id="station_list",
         )
 
@@ -78,7 +94,12 @@ class StationSelectorApp(App):
         if search_buffer or filtered_data:
             list_view = self.query_one("#station_list", ListView)
             list_view.clear()
-            list_view.extend([StationListItem(data) for data in filtered_data])
+            list_view.extend(
+                [
+                    StationListItem(data, self.station_name_column_width)
+                    for data in filtered_data
+                ]
+            )
 
             self._search_label.update(f"Search: {search_buffer}")
 

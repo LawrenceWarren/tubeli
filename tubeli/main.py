@@ -31,10 +31,12 @@ def main():
     )
 
     station_name_column_width = (
-        max(len(station["commonName"]) for station in merged_stations) + 1
+        max(len(station["commonName"]) for station in merged_stations) + 3
     )
 
-    app = StationSelectorApp(merged_stations, line_ids_names)
+    app = StationSelectorApp(
+        merged_stations, line_ids_names, station_name_column_width
+    )
     result = app.run()
     merged = {}
 

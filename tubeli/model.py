@@ -7,38 +7,133 @@ API_URL = "https://api.tfl.gov.uk"
 
 ARRIVALS_PER_TERMINAL = 5
 
-ELIZABETH_LINE_IDS_NAMES = {
-    "elizabeth": "Elizabeth Line",
-}
-DLR_LINE_IDS_NAMES = {
-    "dlr": "DLR",
-}
-TUBE_LINE_IDS_NAMES = {
-    "central": "Central",
-    "jubilee": "Jubilee",
-    "northern": "Northern",
-    "district": "District",
-    "circle": "Circle",
-    "hammersmith-city": "Hammersmith & City",
-    "waterloo-city": "Waterloo & City",
-    "metropolitan": "Metropolitan",
-    "bakerloo": "Bakerloo",
-    "victoria": "Victoria",
-    "piccadilly": "Piccadilly",
-}
-OVERGROUND_LINE_IDS_NAMES = {
-    "weaver": "Weaver",
-    "liberty": "Liberty",
-    "mildmay": "Mildmay",
-    "windrush": "Windrush",
-    "lioness": "Lioness",
-    "suffragette": "Suffragette",
-}
+ELIZABETH_LINE_IDS_NAMES = [
+    {
+        "id": "elizabeth",
+        "name": "Elizabeth Line",
+        "color": "#60399E",
+        "text_color": "#fff",
+    },
+]
+DLR_LINE_IDS_NAMES = [
+    {
+        "id": "dlr",
+        "name": "DLR",
+        "color": "#00AFAD",
+        "text_color": "#000",
+    }
+]
+TUBE_LINE_IDS_NAMES = [
+    {
+        "id": "central",
+        "name": "Central",
+        "color": "#DC241F",
+        "text_color": "#fff",
+    },
+    {
+        "id": "jubilee",
+        "name": "Jubilee",
+        "color": "#838D93",
+        "text_color": "#000",
+    },
+    {
+        "id": "northern",
+        "name": "Northern",
+        "color": "#000000",
+        "text_color": "#fff",
+    },
+    {
+        "id": "district",
+        "name": "District",
+        "color": "#007D32",
+        "text_color": "#fff",
+    },
+    {
+        "id": "circle",
+        "name": "Circle",
+        "color": "#FFC80A",
+        "text_color": "#000",
+    },
+    {
+        "id": "hammersmith-city",
+        "name": "Hammersmith & City",
+        "color": "#F589A6",
+        "text_color": "#000",
+    },
+    {
+        "id": "waterloo-city",
+        "name": "Waterloo & City",
+        "color": "#76D0BD",
+        "text_color": "#000",
+    },
+    {
+        "id": "metropolitan",
+        "name": "Metropolitan",
+        "color": "#9B0058",
+        "text_color": "#fff",
+    },
+    {
+        "id": "bakerloo",
+        "name": "Bakerloo",
+        "color": "#B26300",
+        "text_color": "#000",
+    },
+    {
+        "id": "victoria",
+        "name": "Victoria",
+        "color": "#039BE5",
+        "text_color": "#000",
+    },
+    {
+        "id": "piccadilly",
+        "name": "Piccadilly",
+        "color": "#0019A8",
+        "text_color": "#fff",
+    },
+]
+OVERGROUND_LINE_IDS_NAMES = [
+    {
+        "id": "weaver",
+        "name": "Weaver",
+        "color": "#823A62",
+        "text_color": "#fff",
+    },
+    {
+        "id": "liberty",
+        "name": "Liberty",
+        "color": "#5D6061",
+        "text_color": "#fff",
+    },
+    {
+        "id": "mildmay",
+        "name": "Mildmay",
+        "color": "#0077AD",
+        "text_color": "#fff",
+    },
+    {
+        "id": "windrush",
+        "name": "Windrush",
+        "color": "#ED1B00",
+        "text_color": "#000",
+    },
+    {
+        "id": "lioness",
+        "name": "Lioness",
+        "color": "#FAA61A",
+        "text_color": "#000",
+    },
+    {
+        "id": "suffragette",
+        "name": "Suffragette",
+        "color": "#5BBB72",
+        "text_color": "#000",
+    },
+]
 LINE_IDS_NAMES = (
     ELIZABETH_LINE_IDS_NAMES
-    | DLR_LINE_IDS_NAMES
-    | TUBE_LINE_IDS_NAMES
-    | OVERGROUND_LINE_IDS_NAMES
+    + DLR_LINE_IDS_NAMES
+    + TUBE_LINE_IDS_NAMES
+    + OVERGROUND_LINE_IDS_NAMES
 )
 
 CFOT = "check-front-of-train"
@@ -125,7 +220,7 @@ def simplify_lines(lines):
     filtered = [
         {'line_id': line['id'], 'line_name': line['name']}
         for line in lines
-        if line['id'] in LINE_IDS_NAMES.keys()
+        if line['id'] in [line["id"] for line in LINE_IDS_NAMES]
     ]
     return sorted(filtered, key=lambda x: x['line_name'])
 
