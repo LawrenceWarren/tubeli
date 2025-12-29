@@ -1,8 +1,9 @@
 from model import (
-    fetch_stop_points,
+    fetch_stop_points_by_mode,
     fetch_transport_interchanges,
     merge_stations,
     fetch_lines_arrivals,
+    get_line_ids_names,
 )
 from view import StationSelectorApp
 from json import dumps as json_dumps
@@ -10,10 +11,12 @@ from json import dumps as json_dumps
 
 def main():
     # Fetch datasets
-    elizabeth = fetch_stop_points('elizabeth-line', 'NaptanRailStation')
-    overground = fetch_stop_points('overground', 'NaptanRailStation')
-    tube = fetch_stop_points('tube', 'NaptanMetroStation')
-    dlr = fetch_stop_points('dlr', 'NaptanMetroStation')
+    elizabeth = fetch_stop_points_by_mode('elizabeth-line', 'NaptanRailStation')
+    overground = fetch_stop_points_by_mode('overground', 'NaptanRailStation')
+    tube = fetch_stop_points_by_mode('tube', 'NaptanMetroStation')
+    dlr = fetch_stop_points_by_mode('dlr', 'NaptanMetroStation')
+
+    line_ids_names = get_line_ids_names()
 
     hub_common_names = fetch_transport_interchanges()
 
@@ -27,17 +30,11 @@ def main():
         hub_common_names,
     )
 
-    # print(json_dumps(merged_stations))
-    # return 0
+    station_name_column_width = (
+        max(len(station["commonName"]) for station in merged_stations) + 1
+    )
 
-    # Longest station names are
-    # "King's Cross & St Pancras International"
-    # 'Heathrow Airport Terminal 4'
-    # TODO: Kings cross is bugged and fails to return any times - this is a trend with all many stations on the circle line
-    # station_names = [s["commonName"] for s in merged_stations]
-    # print(sorted(station_names, key=len, reverse=True))
-
-    app = StationSelectorApp(merged_stations)
+    app = StationSelectorApp(merged_stations, line_ids_names)
     result = app.run()
     merged = {}
 

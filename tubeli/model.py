@@ -7,32 +7,38 @@ API_URL = "https://api.tfl.gov.uk"
 
 ARRIVALS_PER_TERMINAL = 5
 
-ELIZABETH_LINE_IDS = ["elizabeth"]
-DLR_LINE_IDS = ["dlr"]
-TUBE_LINE_IDS = [
-    "central",
-    "jubilee",
-    "northern",
-    "district",
-    "circle",
-    "hammersmith-city",
-    "waterloo-city",
-    "metropolitan",
-    "bakerloo",
-    "victoria",
-    "piccadilly",
-]
-OVERGROUND_LINE_IDS = [
-    "weaver",
-    "liberty",
-    "mildmay",
-    "windrush",
-    "lioness",
-    "suffragette",
-]
-
-LINE_IDS = (
-    ELIZABETH_LINE_IDS + DLR_LINE_IDS + TUBE_LINE_IDS + OVERGROUND_LINE_IDS
+ELIZABETH_LINE_IDS_NAMES = {
+    "elizabeth": "Elizabeth Line",
+}
+DLR_LINE_IDS_NAMES = {
+    "dlr": "DLR",
+}
+TUBE_LINE_IDS_NAMES = {
+    "central": "Central",
+    "jubilee": "Jubilee",
+    "northern": "Northern",
+    "district": "District",
+    "circle": "Circle",
+    "hammersmith-city": "Hammersmith & City",
+    "waterloo-city": "Waterloo & City",
+    "metropolitan": "Metropolitan",
+    "bakerloo": "Bakerloo",
+    "victoria": "Victoria",
+    "piccadilly": "Piccadilly",
+}
+OVERGROUND_LINE_IDS_NAMES = {
+    "weaver": "Weaver",
+    "liberty": "Liberty",
+    "mildmay": "Mildmay",
+    "windrush": "Windrush",
+    "lioness": "Lioness",
+    "suffragette": "Suffragette",
+}
+LINE_IDS_NAMES = (
+    ELIZABETH_LINE_IDS_NAMES
+    | DLR_LINE_IDS_NAMES
+    | TUBE_LINE_IDS_NAMES
+    | OVERGROUND_LINE_IDS_NAMES
 )
 
 CFOT = "check-front-of-train"
@@ -40,6 +46,10 @@ CFOT = "check-front-of-train"
 ALL_STATION_DATA: list = []
 displayed_station_data: list = []
 search_buffer: str = ""
+
+
+def get_line_ids_names():
+    return LINE_IDS_NAMES
 
 
 def set_all_station_data(d: list) -> None:
@@ -65,16 +75,12 @@ def station_name_filter(name):
     return re.sub(pattern, '', name, flags=re.IGNORECASE)
 
 
-def fetch_stop_points(mode, stop_type):
-    """Fetch StopPoints for a given mode and stopType, returning simplified station dicts."""
-    response = requests.get(f"{API_URL}/StopPoint/Mode/{mode}")
-    response.raise_for_status()
-    data = response.json()
-    stop_points = data.get('stopPoints', [])
-
+def sanitise_stop_points(stop_points, mode, stop_type=None):
+    """Takes a list of stop points as fetched from the API, and returns a sanitised list"""
     result = []
+
     for sp in stop_points:
-        if sp.get('stopType') != stop_type:
+        if sp["stopType"] != stop_type and stop_type:
             continue
         lines = simplify_lines(sp.get('lines', []))
         station = {
@@ -87,6 +93,23 @@ def fetch_stop_points(mode, stop_type):
             station['hubId'] = sp['hubNaptanCode']
         result.append(station)
     return result
+
+
+def fetch_stop_points_by_line(line_id, mode):
+    """Fetch all StopPoints for a given line ID, returning simplified station dicts."""
+    response = requests.get(f"{API_URL}/Line/{line_id}/StopPoints")
+    response.raise_for_status()
+    stop_points = response.json()
+    return sanitise_stop_points(stop_points, mode)
+
+
+def fetch_stop_points_by_mode(mode, stop_type):
+    """Fetch all StopPoints for a given mode, returning simplified station dicts."""
+    response = requests.get(f"{API_URL}/StopPoint/Mode/{mode}")
+    response.raise_for_status()
+    data = response.json()
+    stop_points = data.get('stopPoints', [])
+    return sanitise_stop_points(stop_points, mode, stop_type)
 
 
 def fetch_transport_interchanges():
@@ -102,7 +125,7 @@ def simplify_lines(lines):
     filtered = [
         {'line_id': line['id'], 'line_name': line['name']}
         for line in lines
-        if line['id'] in LINE_IDS
+        if line['id'] in LINE_IDS_NAMES.keys()
     ]
     return sorted(filtered, key=lambda x: x['line_name'])
 
