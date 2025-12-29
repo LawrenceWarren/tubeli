@@ -1,139 +1,138 @@
 import requests
 import re
 from json import dumps as json_dumps
-from textual import log
 
 API_URL = "https://api.tfl.gov.uk"
 
 ARRIVALS_PER_TERMINAL = 5
 
-ELIZABETH_LINE_IDS_NAMES = [
-    {
+ELIZABETH_LINE_DETAILS = {
+    "elizabeth": {
         "id": "elizabeth",
         "name": "Elizabeth Line",
         "color": "#60399E",
         "text_color": "#fff",
     },
-]
-DLR_LINE_IDS_NAMES = [
-    {
+}
+DLR_LINE_DETAILS = {
+    "dlr": {
         "id": "dlr",
         "name": "DLR",
         "color": "#00AFAD",
         "text_color": "#000",
     }
-]
-TUBE_LINE_IDS_NAMES = [
-    {
+}
+TUBE_LINE_DETAILS = {
+    "central": {
         "id": "central",
         "name": "Central",
         "color": "#DC241F",
         "text_color": "#fff",
     },
-    {
+    "jubilee": {
         "id": "jubilee",
         "name": "Jubilee",
         "color": "#838D93",
         "text_color": "#000",
     },
-    {
+    "northern": {
         "id": "northern",
         "name": "Northern",
         "color": "#000000",
         "text_color": "#fff",
     },
-    {
+    "district": {
         "id": "district",
         "name": "District",
         "color": "#007D32",
         "text_color": "#fff",
     },
-    {
+    "circle": {
         "id": "circle",
         "name": "Circle",
         "color": "#FFC80A",
         "text_color": "#000",
     },
-    {
+    "hammersmith-city": {
         "id": "hammersmith-city",
         "name": "Hammersmith & City",
         "color": "#F589A6",
         "text_color": "#000",
     },
-    {
+    "waterloo-city": {
         "id": "waterloo-city",
         "name": "Waterloo & City",
         "color": "#76D0BD",
         "text_color": "#000",
     },
-    {
+    "metropolitan": {
         "id": "metropolitan",
         "name": "Metropolitan",
         "color": "#9B0058",
         "text_color": "#fff",
     },
-    {
+    "bakerloo": {
         "id": "bakerloo",
         "name": "Bakerloo",
         "color": "#B26300",
         "text_color": "#000",
     },
-    {
+    "victoria": {
         "id": "victoria",
         "name": "Victoria",
         "color": "#039BE5",
         "text_color": "#000",
     },
-    {
+    "piccadilly": {
         "id": "piccadilly",
         "name": "Piccadilly",
         "color": "#0019A8",
         "text_color": "#fff",
     },
-]
-OVERGROUND_LINE_IDS_NAMES = [
-    {
+}
+OVERGROUND_LINE_DETAILS = {
+    "weaver": {
         "id": "weaver",
         "name": "Weaver",
         "color": "#823A62",
         "text_color": "#fff",
     },
-    {
+    "liberty": {
         "id": "liberty",
         "name": "Liberty",
         "color": "#5D6061",
         "text_color": "#fff",
     },
-    {
+    "mildmay": {
         "id": "mildmay",
         "name": "Mildmay",
         "color": "#0077AD",
         "text_color": "#fff",
     },
-    {
+    "windrush": {
         "id": "windrush",
         "name": "Windrush",
         "color": "#ED1B00",
         "text_color": "#000",
     },
-    {
+    "lioness": {
         "id": "lioness",
         "name": "Lioness",
         "color": "#FAA61A",
         "text_color": "#000",
     },
-    {
+    "suffragette": {
         "id": "suffragette",
         "name": "Suffragette",
         "color": "#5BBB72",
         "text_color": "#000",
     },
-]
-LINE_IDS_NAMES = (
-    ELIZABETH_LINE_IDS_NAMES
-    + DLR_LINE_IDS_NAMES
-    + TUBE_LINE_IDS_NAMES
-    + OVERGROUND_LINE_IDS_NAMES
+}
+LINE_DETAILS = (
+    ELIZABETH_LINE_DETAILS
+    | DLR_LINE_DETAILS
+    | TUBE_LINE_DETAILS
+    | OVERGROUND_LINE_DETAILS
 )
 
 CFOT = "check-front-of-train"
@@ -143,8 +142,12 @@ displayed_station_data: list = []
 search_buffer: str = ""
 
 
-def get_line_ids_names():
-    return LINE_IDS_NAMES
+def get_all_line_details():
+    return LINE_DETAILS
+
+
+def get_line_details_by_id(id):
+    return LINE_DETAILS[id]
 
 
 def set_all_station_data(d: list) -> None:
@@ -220,7 +223,7 @@ def simplify_lines(lines):
     filtered = [
         {'line_id': line['id'], 'line_name': line['name']}
         for line in lines
-        if line['id'] in [line["id"] for line in LINE_IDS_NAMES]
+        if line['id'] in LINE_DETAILS.keys()
     ]
     return sorted(filtered, key=lambda x: x['line_name'])
 
