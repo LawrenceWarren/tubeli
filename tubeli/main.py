@@ -2,7 +2,6 @@ from model import (
     fetch_stop_points_by_mode,
     fetch_transport_interchanges,
     merge_stations,
-    fetch_lines_arrivals,
 )
 from view import StationSelectorApp
 from json import dumps as json_dumps
@@ -35,13 +34,6 @@ def main():
 
     app = StationSelectorApp(merged_stations, station_name_column_width)
     result = app.run()
-    merged_arrivals = {}
-
-    if result:
-        for mode in result["modes"]:
-            merged_arrivals |= fetch_lines_arrivals(result["modes"][mode])
-
-    print(json_dumps(merged_arrivals, indent=2))
     return
 
 

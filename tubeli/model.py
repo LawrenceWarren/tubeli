@@ -1,6 +1,7 @@
 import requests
 import re
 from json import dumps as json_dumps
+from collections import defaultdict
 
 API_URL = "https://api.tfl.gov.uk"
 
@@ -353,3 +354,40 @@ def handle_key_press(key: str) -> list:
     ]
 
     return search_buffer, displayed_station_data
+
+
+def build_merged_arrivals(result):
+    merged_arrivals = {}
+
+    for mode in result["modes"]:
+        merged_arrivals |= fetch_lines_arrivals(result["modes"][mode])
+
+    return merged_arrivals
+
+
+def identify_lines_directions(merged_arrivals):
+    result = {}
+
+    for line_id, line_data in merged_arrivals.items():
+        directions = defaultdict(dict)
+
+        for terminal_id, terminal_data in line_data.get(
+            "terminals", {}
+        ).items():
+            arrivals = terminal_data.get("arrivals", [])
+
+            if not arrivals:
+                continue
+
+            direction = arrivals[0].get("direction")
+            station_name = terminal_data.get("station_name")
+
+            if direction and station_name:
+                directions[direction][terminal_id] = station_name
+
+        result[line_id] = {
+            "line_name": line_data.get("line_name"),
+            "directions": dict(directions),
+        }
+
+    return result

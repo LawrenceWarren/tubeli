@@ -4,12 +4,15 @@ from textual.containers import Container
 from textual.screen import Screen
 from textual import events
 from textual.reactive import reactive
+from textual.widgets import Pretty
 
 from model import (
     handle_key_press,
     set_all_station_data,
     set_filtered_station_data,
     get_line_details_by_id,
+    build_merged_arrivals,
+    identify_lines_directions,
 )
 
 
@@ -57,10 +60,27 @@ class StationListItem(ListItem):
 
 
 class PlatformSelectorScreen(Screen):
-    pass
+    BINDINGS = [("escape", "back", "Back")]
+
+    def __init__(self, station_info):
+        super().__init__()
+        self.station_info = station_info
+        self.merged_arrivals = build_merged_arrivals(station_info)
+        self.line_directions = identify_lines_directions(self.merged_arrivals)
+
+    def compose(self) -> ComposeResult:
+        for _, line in self.line_directions.items():
+            yield Label(line["line_name"])
+            for direction in line["directions"].keys():
+                yield Label(direction)
+                # TODO: Yield this into a nicer structure
+
+    def action_back(self) -> None:
+        self.app.pop_screen()
 
 
 class StationSelectorScreen(Screen):
+    BINDINGS = [("escape", "back", "Back")]
     stations_data = reactive([])
 
     def __init__(self, stations_data, station_name_column_width):
@@ -103,7 +123,12 @@ class StationSelectorScreen(Screen):
                 self._search_label.update(f"Search: {search_buffer}")
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
-        self.app.exit(result=event.item.station_info)
+        await self.app.push_screen(
+            PlatformSelectorScreen(event.item.station_info)
+        )
+
+    def action_back(self) -> None:
+        self.app.exit()
 
 
 class StationSelectorApp(App):
