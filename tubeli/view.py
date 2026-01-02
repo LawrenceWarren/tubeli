@@ -1,9 +1,10 @@
 from textual.app import App, ComposeResult
 from textual.widgets import ListView, ListItem, Label
 from textual.containers import Container
+from textual.screen import Screen
 from textual import events
 from textual.reactive import reactive
-from textual import log
+
 from model import (
     handle_key_press,
     set_all_station_data,
@@ -55,32 +56,29 @@ class StationListItem(ListItem):
         )
 
 
-class StationSelectorApp(App):
-    """Textual app to interactively select a station with type-ahead search."""
+class PlatformSelectorScreen(Screen):
+    pass
 
-    CSS_PATH = "layout.css"
+
+class StationSelectorScreen(Screen):
     stations_data = reactive([])
-    station_name_column_width = 0
 
     def __init__(self, stations_data, station_name_column_width):
         super().__init__()
-
-        self._search_label = None
-        self.station_name_column_width = station_name_column_width
-        set_all_station_data(stations_data)
-        set_filtered_station_data(stations_data)
         self.stations_data = stations_data
+        self.station_name_column_width = station_name_column_width
+        self._search_label: Label | None = None
 
     def compose(self) -> ComposeResult:
-        """Create the UI layout."""
-
         yield Label(
-            "Select a station (arrow keys + Enter, type to search):", id="title"
+            "Select a station (arrow keys + Enter, type to search):",
+            id="title",
         )
+
         self._search_label = Label("Search: ", id="search_label")
         yield self._search_label
+
         yield ListView(
-            # *[LineListItem(line) for line in self.line_ids_names],
             *[
                 StationListItem(data, self.station_name_column_width)
                 for data in self.stations_data
@@ -89,8 +87,6 @@ class StationSelectorApp(App):
         )
 
     async def on_key(self, event: events.Key) -> None:
-        """Handle search typing and key presses."""
-
         search_buffer, filtered_data = handle_key_press(event.key)
 
         if search_buffer or filtered_data:
@@ -103,9 +99,29 @@ class StationSelectorApp(App):
                 ]
             )
 
-            self._search_label.update(f"Search: {search_buffer}")
+            if self._search_label:
+                self._search_label.update(f"Search: {search_buffer}")
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
-        """Handle item selection: print station name and exit."""
+        self.app.exit(result=event.item.station_info)
 
-        self.exit(result=event.item.station_info)
+
+class StationSelectorApp(App):
+    CSS_PATH = "layout.css"
+
+    def __init__(self, stations_data, station_name_column_width):
+        super().__init__()
+
+        set_all_station_data(stations_data)
+        set_filtered_station_data(stations_data)
+
+        self.stations_data = stations_data
+        self.station_name_column_width = station_name_column_width
+
+    async def on_mount(self) -> None:
+        await self.push_screen(
+            StationSelectorScreen(
+                self.stations_data,
+                self.station_name_column_width,
+            )
+        )

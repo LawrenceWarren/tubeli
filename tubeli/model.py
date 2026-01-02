@@ -317,9 +317,7 @@ def fetch_lines_arrivals(station_id):
             if destination_id == station_id:
                 # TODO: For terminal stations, maybe just show timetable data?
                 # /Line/{id}/Timetable/{fromStopPointId}
-                print(
-                    "TODO: This station is a terminal - find a way to find the times!"
-                )
+                pass
 
         if (
             len(lines[line_id]["terminals"][destination_id]["arrivals"])
