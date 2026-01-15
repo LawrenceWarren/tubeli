@@ -2,6 +2,7 @@ import requests
 import re
 from json import dumps as json_dumps
 from collections import defaultdict
+import re
 
 API_URL = "https://api.tfl.gov.uk"
 
@@ -290,7 +291,9 @@ def construct_arrival(arrival, station_id):
     return {
         "destination_id": destination_id,
         "destination_name": (
-            arrival["destinationName"] if "destinationName" in arrival else CFOT
+            clean_station_name(arrival["destinationName"])
+            if "destinationName" in arrival
+            else CFOT
         ),
         "expected_time": arrival["expectedArrival"],
         "platform_name": arrival["platformName"],
@@ -324,6 +327,23 @@ def fetch_line_arrivals(station_id):
             lines[line_id]["arrivals"][direction].append(a)
 
     return lines
+
+
+def clean_station_name(name: str) -> str:
+    # 1️⃣ Remove standard suffixes
+    suffixes = [" DLR Station", " Underground Station", " Rail Station"]
+    for suffix in suffixes:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+
+    # 2️⃣ Remove bracketed substrings except "(Olympia)"
+    # Match: space + '(' + anything except ')' + ')'
+    # Negative lookahead for "Olympia"
+    pattern = r' \((?!Olympia\)).*?\)'
+    name = re.sub(pattern, "", name)
+
+    # 3️⃣ Trim whitespace
+    return name.strip()
 
 
 def handle_key_press(key: str) -> list:

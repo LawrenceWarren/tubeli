@@ -12,6 +12,7 @@ Label {
 
 .line_title {
   text-style: bold;
+  text-align: center;
   margin: 1 0;
 }
 

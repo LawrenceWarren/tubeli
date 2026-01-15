@@ -12,8 +12,49 @@ from model import (
     set_filtered_station_data,
     get_line_details_by_id,
     fetch_station_arrivals,
-    identify_lines_directions,
 )
+
+DIRECTION_ORDER = {
+    "westbound": 0,
+    "northbound": 0,
+    "inbound": 0,
+    "eastbound": 1,
+    "southbound": 1,
+    "outbound": 1,
+}
+
+
+class ArrivalRow(Static):
+    def __init__(self, destination: str, expected_time: str):
+        super().__init__()
+        self.destination = destination
+        self.expected_time = expected_time
+
+    def on_mount(self):
+        # self.styles.opacity = 0
+        # self.animate("opacity", 1.0, duration=0.3)
+        self.update_text()
+        self.set_interval(15, self.update_text)
+
+    def update_text(self):
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        arrival_time = datetime.fromisoformat(
+            self.expected_time.replace("Z", "+00:00")
+        )
+
+        delta = int((arrival_time - now).total_seconds())
+
+        if delta <= 10:
+            time_text = "Arrived"
+        elif delta < 60:
+            time_text = "1 min"
+        else:
+            mins = delta // 60
+            time_text = f"{mins} min" if mins == 1 else f"{mins} mins"
+
+        self.update(f"{time_text:<8} {self.destination}")
 
 
 class ArrivalColumn(Vertical):
@@ -32,43 +73,36 @@ class ArrivalColumn(Vertical):
             )
 
 
-class ArrivalRow(Static):
-    def __init__(self, destination: str, expected_time: str):
-        now = datetime.now(timezone.utc)
-        arrival_time = datetime.fromisoformat(
-            expected_time.replace("Z", "+00:00")
-        )
-
-        delta_seconds = int((arrival_time - now).total_seconds())
-
-        if delta_seconds <= 10:
-            time_text = "Arrived"
-        elif delta_seconds < 60:
-            time_text = "1 min"
-        else:
-            minutes = delta_seconds // 60
-            time_text = f"{minutes} min" if minutes == 1 else f"{minutes} mins"
-
-        super().__init__(f"{time_text:<8} {destination}")
-
-
 class LineBoard(Vertical):
+
     def __init__(
-        self, line_name: str, arrivals_by_direction: dict[str, list[dict]]
+        self,
+        line_id: str,
+        line_name: str,
+        arrivals_by_direction: dict[str, list[dict]],
     ):
         super().__init__()
+        self.line_id = line_id
         self.line_name = line_name
         self.arrivals_by_direction = arrivals_by_direction
 
     def compose(self):
-        # Line header
-        yield Static(self.line_name, classes="line_title")
+        info = get_line_details_by_id(self.line_id)
+        line_label = Static(self.line_name, classes="line_title")
+        line_label.styles.background = info["color"]
+        line_label.styles.color = info["text_color"]
+        line_label.styles.text_align = "center"
+        yield line_label
 
-        # Directions side-by-side
+        ordered_directions = sorted(
+            self.arrivals_by_direction.items(),
+            key=lambda item: DIRECTION_ORDER.get(item[0], 99),
+        )
+
         yield Horizontal(
             *[
                 ArrivalColumn(direction, arrivals)
-                for direction, arrivals in self.arrivals_by_direction.items()
+                for direction, arrivals in ordered_directions
             ]
         )
 
@@ -116,21 +150,43 @@ class StationListItem(ListItem):
         )
 
 
-class PlatformSelectorScreen(Screen):
+class ArrivalViewingScreen(Screen):
     BINDINGS = [("escape", "back", "Back")]
+    merged_arrivals = reactive(dict)
 
     def __init__(self, station_info):
         super().__init__()
         self.station_info = station_info
-        self.merged_arrivals = fetch_station_arrivals(station_info)
-        self.line_directions = identify_lines_directions(self.merged_arrivals)
 
     def compose(self) -> ComposeResult:
-        for line in self.merged_arrivals.values():
-            yield LineBoard(
-                line["line_name"],
-                line["arrivals"],
-            )
+        yield Vertical(id="board")
+
+    async def on_mount(self) -> None:
+        self.refresh_arrivals()
+        self.set_interval(15, self.refresh_arrivals)
+
+    def refresh_arrivals(self) -> None:
+        self.merged_arrivals = fetch_station_arrivals(self.station_info)
+
+        board = self.query_one("#board", Vertical)
+
+        # Batch DOM updates via the App
+        with self.app.batch_update():
+            board.remove_children()
+
+            for line_id, line in sorted(
+                self.merged_arrivals.items(),
+                key=lambda item: item[1][
+                    "line_name"
+                ].lower(),  # sort by line_name
+            ):
+                board.mount(
+                    LineBoard(
+                        line_id,
+                        line["line_name"],
+                        line["arrivals"],
+                    )
+                )
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -181,7 +237,7 @@ class StationSelectorScreen(Screen):
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         await self.app.push_screen(
-            PlatformSelectorScreen(event.item.station_info)
+            ArrivalViewingScreen(event.item.station_info)
         )
 
     def action_back(self) -> None:
