@@ -1,19 +1,76 @@
 from textual.app import App, ComposeResult
-from textual.widgets import ListView, ListItem, Label
-from textual.containers import Container
+from textual.widgets import ListView, ListItem, Label, Pretty, Static
+from textual.containers import Container, Vertical, Horizontal
 from textual.screen import Screen
 from textual import events
 from textual.reactive import reactive
-from textual.widgets import Pretty
+from datetime import datetime, timezone
 
 from model import (
     handle_key_press,
     set_all_station_data,
     set_filtered_station_data,
     get_line_details_by_id,
-    build_merged_arrivals,
+    fetch_station_arrivals,
     identify_lines_directions,
 )
+
+
+class ArrivalColumn(Vertical):
+    def __init__(self, direction: str, arrivals: list[dict]):
+        super().__init__()
+        self.direction = direction
+        self.arrivals = arrivals
+
+    def compose(self):
+        yield Static(self.direction.title(), classes="column_title")
+
+        for arrival in self.arrivals:
+            yield ArrivalRow(
+                arrival["destination_name"],
+                arrival["expected_time"],
+            )
+
+
+class ArrivalRow(Static):
+    def __init__(self, destination: str, expected_time: str):
+        now = datetime.now(timezone.utc)
+        arrival_time = datetime.fromisoformat(
+            expected_time.replace("Z", "+00:00")
+        )
+
+        delta_seconds = int((arrival_time - now).total_seconds())
+
+        if delta_seconds <= 10:
+            time_text = "Arrived"
+        elif delta_seconds < 60:
+            time_text = "1 min"
+        else:
+            minutes = delta_seconds // 60
+            time_text = f"{minutes} min" if minutes == 1 else f"{minutes} mins"
+
+        super().__init__(f"{time_text:<8} {destination}")
+
+
+class LineBoard(Vertical):
+    def __init__(
+        self, line_name: str, arrivals_by_direction: dict[str, list[dict]]
+    ):
+        super().__init__()
+        self.line_name = line_name
+        self.arrivals_by_direction = arrivals_by_direction
+
+    def compose(self):
+        # Line header
+        yield Static(self.line_name, classes="line_title")
+
+        # Directions side-by-side
+        yield Horizontal(
+            *[
+                ArrivalColumn(direction, arrivals)
+                for direction, arrivals in self.arrivals_by_direction.items()
+            ]
+        )
 
 
 class LineListItem(ListItem):
@@ -65,15 +122,15 @@ class PlatformSelectorScreen(Screen):
     def __init__(self, station_info):
         super().__init__()
         self.station_info = station_info
-        self.merged_arrivals = build_merged_arrivals(station_info)
+        self.merged_arrivals = fetch_station_arrivals(station_info)
         self.line_directions = identify_lines_directions(self.merged_arrivals)
 
     def compose(self) -> ComposeResult:
-        for _, line in self.line_directions.items():
-            yield Label(line["line_name"])
-            for direction in line["directions"].keys():
-                yield Label(direction)
-                # TODO: Yield this into a nicer structure
+        for line in self.merged_arrivals.values():
+            yield LineBoard(
+                line["line_name"],
+                line["arrivals"],
+            )
 
     def action_back(self) -> None:
         self.app.pop_screen()

@@ -277,15 +277,27 @@ def parse_direction(arrival):
     )
 
 
-def construct_arrival(arrival):
+def construct_arrival(arrival, station_id):
+    destination_id = (
+        arrival["destinationNaptanId"]
+        if "destinationNaptanId" in arrival
+        else CFOT
+    )
+
+    if destination_id == station_id:
+        return None
+
     return {
+        "destination_id": destination_id,
+        "destination_name": (
+            arrival["destinationName"] if "destinationName" in arrival else CFOT
+        ),
         "expected_time": arrival["expectedArrival"],
         "platform_name": arrival["platformName"],
-        "direction": parse_direction(arrival),
     }
 
 
-def fetch_lines_arrivals(station_id):
+def fetch_line_arrivals(station_id):
     response = requests.get(f"{API_URL}/StopPoint/{station_id}/Arrivals")
     response.raise_for_status()
     arrivals = sorted(response.json(), key=lambda x: x["expectedArrival"])
@@ -298,37 +310,18 @@ def fetch_lines_arrivals(station_id):
         if line_id not in lines:
             lines[line_id] = {
                 "line_name": arrival["lineName"],
-                "terminals": {},
+                "arrivals": {},
             }
 
-        destination_id = (
-            arrival["destinationNaptanId"]
-            if "destinationNaptanId" in arrival
-            else CFOT
-        )
-        destination_name = (
-            arrival["destinationName"] if "destinationName" in arrival else CFOT
-        )
+        direction = parse_direction(arrival)
 
-        if destination_id not in lines[line_id]["terminals"]:
-            lines[line_id]["terminals"][destination_id] = {
-                "station_name": destination_name,
-                "arrivals": [],
-            }
-            if destination_id == station_id:
-                # TODO: For terminal stations, maybe just show timetable data?
-                # /Line/{id}/Timetable/{fromStopPointId}
-                pass
+        if direction not in lines[line_id]["arrivals"]:
+            lines[line_id]["arrivals"][direction] = []
 
-        if (
-            len(lines[line_id]["terminals"][destination_id]["arrivals"])
-            < ARRIVALS_PER_TERMINAL
-        ):
-            lines[line_id]["terminals"][destination_id]["arrivals"].append(
-                construct_arrival(arrival)
-            )
-        else:
-            continue
+        a = construct_arrival(arrival, station_id)
+
+        if a is not None:
+            lines[line_id]["arrivals"][direction].append(a)
 
     return lines
 
@@ -356,11 +349,11 @@ def handle_key_press(key: str) -> list:
     return search_buffer, displayed_station_data
 
 
-def build_merged_arrivals(result):
+def fetch_station_arrivals(result):
     merged_arrivals = {}
 
     for mode in result["modes"]:
-        merged_arrivals |= fetch_lines_arrivals(result["modes"][mode])
+        merged_arrivals |= fetch_line_arrivals(result["modes"][mode])
 
     return merged_arrivals
 
