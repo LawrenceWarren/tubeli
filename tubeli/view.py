@@ -1,10 +1,9 @@
 from textual.app import App, ComposeResult
-from textual.widgets import ListView, ListItem, Label, Pretty, Static
+from textual.widgets import ListView, ListItem, Label, Static
 from textual.containers import Container, Vertical, Horizontal
 from textual.screen import Screen
 from textual import events
 from textual.reactive import reactive
-from datetime import datetime, timezone
 
 from model import (
     handle_key_press,

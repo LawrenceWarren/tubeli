@@ -6,7 +6,7 @@ import re
 
 API_URL = "https://api.tfl.gov.uk"
 
-ARRIVALS_PER_TERMINAL = 5
+MAX_ARRIVALS_PER_DIRECTION = 5
 
 ELIZABETH_LINE_DETAILS = {
     "elizabeth": {
@@ -145,6 +145,9 @@ search_buffer: str = ""
 
 
 def get_all_line_details():
+    """
+    Returns: LINE_DETAILS
+    """
     return LINE_DETAILS
 
 
@@ -288,13 +291,15 @@ def construct_arrival(arrival, station_id):
     if destination_id == station_id:
         return None
 
+    destination_name = (
+        clean_station_name(arrival["destinationName"])
+        if "destinationName" in arrival
+        else "Check train"
+    )
+
     return {
         "destination_id": destination_id,
-        "destination_name": (
-            clean_station_name(arrival["destinationName"])
-            if "destinationName" in arrival
-            else CFOT
-        ),
+        "destination_name": destination_name,
         "expected_time": arrival["expectedArrival"],
         "platform_name": arrival["platformName"],
     }
@@ -318,12 +323,19 @@ def fetch_line_arrivals(station_id):
 
         direction = parse_direction(arrival)
 
+        if direction == "terminal":
+            continue
+
         if direction not in lines[line_id]["arrivals"]:
             lines[line_id]["arrivals"][direction] = []
 
         a = construct_arrival(arrival, station_id)
 
-        if a is not None:
+        if (
+            a is not None
+            and len(lines[line_id]["arrivals"][direction])
+            < MAX_ARRIVALS_PER_DIRECTION
+        ):
             lines[line_id]["arrivals"][direction].append(a)
 
     return lines
@@ -402,5 +414,36 @@ def identify_lines_directions(merged_arrivals):
             "line_name": line_data.get("line_name"),
             "directions": dict(directions),
         }
+
+    return result
+
+
+def fetch_line_status(line_id):
+    result = {}
+
+    response = requests.get(f"{API_URL}/Line/{line_id}/Status?detail=true")
+    response.raise_for_status()
+    full_statuses = response.json()[0]
+
+    result["id"] = full_statuses["id"]
+    result["name"] = full_statuses["name"]
+
+    result["statuses"] = []
+
+    for ls in full_statuses["lineStatuses"]:
+        if ls["statusSeverity"] == 10:
+            continue
+        status = {}
+        status["summary"] = ls["statusSeverityDescription"]
+        status["reason"] = ls["reason"]
+
+        affected_stops = []
+
+        for stop in ls["disruption"]["affectedStops"]:
+            affected_stops.append(stop["naptanId"])
+
+        status["affected_stops"] = affected_stops
+
+        result["statuses"].append(status)
 
     return result
